@@ -1,0 +1,34 @@
+name: astrbot_plugin_ReplyGate
+display_name: ReplyGate
+short_desc: 控制机器人什么时候开口：沉默、暂存、打断与重答，全程可审计。
+desc: >-
+  ReplyGate 把「该不该回」和「该回什么」拆成两层，让模型自己对回复时机下判断，
+  插件只负责执行与记录。
+  模型可以在回答末尾用 SILENCE 标记直接沉默（再见、抗议、无意义内容、用户要求别回），
+  或用 HOLD 标记把回答先暂存几秒，等用户补充解释后再决定丢弃或发送；
+  用户在同一会话里追加消息时，插件会用一个小的判定模型判断「是否值得放弃当前回答、
+  重新回答」，并据此作废旧回答、打断在途生成或保留原回答；
+  回答可以按自定义分隔符拆成多段、逐段发送，段间等待可配置并被新消息打断。
+  插件内自带消息缓冲（替代微信桥的 buffer_seconds），所有判定与打断过程写入 SQLite，
+  并提供网页面板查看流水、开关与参数。
+  依赖关闭流式输出与主动回复概率；仅观察模式下只记录不拦截，可先观察再启用。
+version: 1.0.0
+author: jingle
+repo: https://github.com/JingleCJZ/astrbot_plugin_ReplyGate
+astrbot_version: ">=4.29.1"
+support_platforms:
+  - aiocqhttp
+  - qq_official
+tags:
+  - 群聊
+  - 回复控制
+  - 打断
+  - WebUI
+views:
+  - name: gate
+    title: 判定流水与运行开关
+    description: 判定流水、沉默与等待、打断与重答、分句与缓冲的运行开关与参数
+help: >-
+  部署前提：关闭流式输出、关闭 AstrBot 主动回复概率、不要与其它拦截类插件同时启用。
+  功能：沉默标记（SILENCE）、暂存标记（HOLD）、催促语延迟与撤销、同用户打断与重答（强/弱）、
+  判定模型、消息缓冲、分句发送、SQLite 流水、网页看板、仅观察模式与运行开关。

@@ -1,0 +1,1376 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ReplyGate · 判定与闸门</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #171a21; --panel2: #1e222b; --line: #2a2f3a;
+    --fg: #e6e9ef; --dim: #9aa3b2; --accent: #5b9dff; --ok: #3ddc97;
+    --warn: #ffc857; --bad: #ff6b6b;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg);
+         font: 13px/1.5 "Segoe UI", "Microsoft YaHei", system-ui, sans-serif; }
+  header { display: flex; align-items: center; gap: 12px; padding: 14px 18px;
+           border-bottom: 1px solid var(--line); background: var(--panel);
+           position: sticky; top: 0; z-index: 5; flex-wrap: wrap; }
+  h1 { font-size: 15px; margin: 0; font-weight: 600; letter-spacing: .3px; }
+  .badge { padding: 2px 8px; border-radius: 999px; font-size: 11px;
+           border: 1px solid var(--line); color: var(--dim); }
+  main { padding: 16px 18px 60px; }
+  .cards { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+          padding: 12px 14px; }
+  .card b { display: block; font-size: 11px; color: var(--dim); font-weight: 500;
+            margin-bottom: 6px; }
+  .card span { font-size: 20px; font-weight: 600; }
+  .card small { display: block; color: var(--dim); font-size: 11px; margin-top: 4px; }
+  section { margin-top: 18px; }
+  .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+             background: var(--panel); border: 1px solid var(--line);
+             border-radius: 10px; padding: 10px 12px; }
+  input, select, button { background: var(--panel2); color: var(--fg);
+    border: 1px solid var(--line); border-radius: 7px; padding: 6px 9px; font: inherit; }
+  input[type="number"] { width: 84px; }
+  button { cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button:disabled { opacity: .5; cursor: default; }
+  button.primary { background: #1d3a63; border-color: #2a5590; color: #dbe7ff; }
+  button.danger { background: #3a1d1d; border-color: #5d2a2a; color: #ffd6d6; }
+  .muted { color: var(--dim); }
+  .warnlist { margin: 8px 0 0; padding-left: 18px; color: var(--warn); }
+  .banner { margin-top: 12px; border: 1px solid #5d2a2a; background: #241414;
+            color: #ffd6d6; border-radius: 10px; padding: 10px 12px; }
+  .banner b { display: block; margin-bottom: 4px; }
+  .switches { display: grid; gap: 8px; margin-top: 10px; }
+  .num { display: inline-flex; align-items: center; gap: 6px; color: var(--dim);
+         font-size: 12px; white-space: nowrap; }
+  .num input[type="number"] { width: 84px; padding: 5px 8px; }
+  .num input[type="range"] { width: 96px; accent-color: #5b9dff; }
+  .switch-row { display: flex; align-items: center; gap: 14px;
+                background: var(--panel); border: 1px solid var(--line);
+                border-radius: 10px; padding: 10px 14px; }
+  .switch-row .text { flex: 1; min-width: 0; }
+  .switch-row .text b { font-size: 13px; font-weight: 600; }
+  .switch-row .text small { display: block; color: var(--dim); font-size: 11px; margin-top: 2px; }
+  .state { font-size: 11px; padding: 2px 8px; border-radius: 999px;
+           border: 1px solid var(--line); color: var(--dim); white-space: nowrap; }
+  .state.on { color: var(--ok); border-color: #24503c; background: #12241b; }
+  .state.off { color: var(--bad); border-color: #532626; background: #241414; }
+  .state.observe { color: var(--warn); border-color: #4d3f1d; background: #241f10; }
+  .toggle { position: relative; width: 46px; height: 24px; padding: 0; border-radius: 999px;
+            background: #262b36; border: 1px solid var(--line); flex: none; }
+  .toggle .knob { position: absolute; top: 2px; left: 2px; width: 18px; height: 18px;
+                  border-radius: 50%; background: #6b7484; transition: left .15s, background .15s; }
+  .toggle[aria-checked="true"] { background: #1d3a63; border-color: #2a5590; }
+  .toggle[aria-checked="true"] .knob { left: 24px; background: #8ab4ff; }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px;
+          background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+          overflow: hidden; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line);
+           font-size: 12px; vertical-align: top; }
+  th { color: var(--dim); font-weight: 500; background: var(--panel2); position: sticky; top: 0; }
+  tbody tr:hover { background: #1b2029; cursor: pointer; }
+  td.mono { font-family: Consolas, monospace; font-size: 11px; color: var(--dim); }
+  .tag { display: inline-block; padding: 1px 7px; border-radius: 6px; font-size: 11px;
+         border: 1px solid var(--line); }
+  .tag.silence { color: #ffb4b4; border-color: #5b2b2b; }
+  .tag.hold { color: var(--warn); border-color: #574423; }
+  .tag.judge { color: var(--accent); border-color: #2c4570; }
+  .tag.window_open, .tag.window_close { color: #a0f0d0; border-color: #24503c; }
+  .tag.error { color: var(--bad); border-color: #5b2b2b; }
+  .tag.followup { color: #d9c1ff; border-color: #42315e; }
+  .tag.regen, .tag.interrupt { color: #ffd9a0; border-color: #574423; }
+  .tag.config { color: #bcd8ff; border-color: #2c4570; }
+  .st { display: inline-block; padding: 1px 7px; border-radius: 6px; font-size: 11px;
+        border: 1px solid var(--line); white-space: nowrap; }
+  .st.blue { color: #9cc6ff; border-color: #2c4570; background: #14243a; }
+  .st.green { color: #9defc4; border-color: #24503c; background: #12241b; }
+  .st.yellow { color: var(--warn); border-color: #574423; background: #241f10; }
+  .st.red { color: #ffb4b4; border-color: #5b2b2b; background: #241414; }
+  .st.muted { color: var(--dim); border-color: var(--line); }
+  .field { margin-top: 12px; }
+  .field > b { display: block; font-size: 11px; color: var(--dim); font-weight: 500;
+               margin-bottom: 4px; }
+  .field .body { white-space: pre-wrap; word-break: break-word; background: var(--panel2);
+                 border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px;
+                 font-size: 12px; max-height: 34vh; overflow: auto; }
+  .field .body.empty { color: var(--dim); font-style: italic; }
+  .prompt-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .prompt-head .grow { flex: 1; }
+  .editor { margin-top: 10px; }
+  .editor textarea { width: 100%; min-height: 240px; background: var(--panel2); color: var(--fg);
+                     border: 1px solid var(--line); border-radius: 8px; padding: 10px;
+                     font: 12px/1.5 Consolas, "Cascadia Mono", monospace; resize: vertical; }
+  .editor .row { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+  .pager { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+  dialog { background: var(--panel); color: var(--fg); border: 1px solid var(--line);
+           border-radius: 12px; max-width: 760px; width: 92%; padding: 18px; }
+  dialog::backdrop { background: rgba(0,0,0,.6); }
+  dialog .dlg-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  dialog .dlg-head b { font-size: 13px; }
+  dialog .dlg-foot { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
+  dialog label { display: block; margin: 12px 0 4px; color: var(--dim); font-size: 12px; }
+  dialog input[type="text"] { width: 100%; }
+  pre { white-space: pre-wrap; word-break: break-word; background: var(--panel2);
+        border: 1px solid var(--line); border-radius: 8px; padding: 10px;
+        font-size: 12px; max-height: 50vh; overflow: auto; margin: 10px 0 0; }
+  .kv { display: grid; grid-template-columns: 110px 1fr; gap: 4px 10px; font-size: 12px; }
+  .kv b { color: var(--dim); font-weight: 500; }
+  details.group { margin-top: 18px; background: var(--panel); border: 1px solid var(--line);
+                  border-radius: 10px; overflow: hidden; }
+  details.group > summary { cursor: pointer; padding: 10px 14px; font-size: 13px; font-weight: 600;
+                            list-style: none; display: flex; align-items: center; gap: 8px; }
+  details.group > summary::-webkit-details-marker { display: none; }
+  details.group > summary::before { content: "▸"; color: var(--dim); font-size: 11px; }
+  details.group[open] > summary::before { content: "▾"; }
+  details.group > summary .hint { font-weight: 400; color: var(--dim); font-size: 11px; }
+  details.group > .gbody { padding: 0 12px 12px; }
+  details.group .switches { margin-top: 4px; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; background: var(--panel2); padding: 5px 12px; }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button.active { background: #1d3a63; color: #dbe7ff; }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="appTitle">ReplyGate</h1>
+  <span style="flex:1"></span>
+  <button id="btnRefresh">刷新</button>
+  <button id="btnAuto" class="primary">自动刷新：开</button>
+</header>
+
+<main>
+  <div id="banner"></div>
+  <div id="warnings"></div>
+
+  <div class="cards">
+    <div class="card"><b>今日判定</b><span id="cJudge">—</span><small id="cJudgePct"></small></div>
+    <div class="card"><b>沉默 / 丢弃</b><span id="cSilence">—</span><small>含开关未启用的跳过</small></div>
+    <div class="card"><b>HOLD 暂存</b><span id="cHold">—</span><small id="cHoldSent"></small></div>
+    <div class="card"><b>回收草稿</b><span id="cRecycle">—</span><small>被丢弃正文用于下一轮参考</small></div>
+    <div class="card"><b>异常</b><span id="cError">—</span><small>解析失败、接口失败</small></div>
+  </div>
+
+  <details class="group" open>
+    <summary>插件总开关<span class="hint">关闭后整个插件都不介入消息流</span></summary>
+    <div class="gbody"><div class="switches" id="switchList-master"></div></div>
+  </details>
+
+  <details class="group" open>
+    <summary>沉默和等待<span class="hint">标记解析决定沉默/暂存；实际拦截决定是否真的照做</span></summary>
+    <div class="gbody">
+      <div class="switches" id="switchList-silence"></div>
+      <div class="toolbar prompt-head" style="margin-top:10px">
+        <b style="font-size:12px;color:var(--dim);font-weight:500">系统提示词块（沉默机制）</b>
+        <span class="state" id="personaState">读取中…</span>
+        <span class="muted" id="personaMeta"></span>
+        <span class="grow" style="flex:1"></span>
+        <button id="btnPromptEdit">编辑</button>
+        <button id="btnPromptReset" disabled>还原</button>
+      </div>
+      <div class="editor" id="promptEditor" hidden>
+        <textarea id="personaEdit" spellcheck="false" aria-label="系统提示词块内容"></textarea>
+        <div class="row">
+          <button id="btnPromptSave" class="primary">保存</button>
+          <button id="btnPromptCancel">取消</button>
+          <span class="muted" id="promptHint"></span>
+        </div>
+      </div>
+    </div>
+  </details>
+
+  <details class="group" open>
+    <summary>消息打断<span class="hint">同一用户在你回答的过程中又发消息，是否停掉正在生成的那条</span></summary>
+    <div class="gbody">
+      <div class="switches" id="switchList-interrupt"></div>
+      <div class="switch-row" style="margin-top:8px">
+        <div class="text">
+          <b>打断强度</b>
+          <small>弱打断：<b>不取消</b>在途生成，但把它即将发出的那条回答<b>作废丢弃</b>，只回复新消息（省得白杀正在跑的工具）。
+            强打断：直接<b>取消</b>在途执行，旧回答不会产生，再回复新消息；受次数预算限制，超限或接口不可用会自动降级为弱打断。
+            两种模式都只会让用户看到“新回答”，不会出现旧回答。</small>
+        </div>
+        <span class="state" id="modeState">读取中…</span>
+        <div class="seg" role="group" aria-label="打断强度">
+          <button type="button" data-mode="soft">弱打断</button>
+          <button type="button" data-mode="hard">强打断</button>
+        </div>
+      </div>
+      <div class="switch-row" style="margin-top:8px">
+        <div class="text">
+          <b>超时<span class="muted" style="font-weight:400">（强 / 弱打断都生效）</span></b>
+          <small>超时后的打断不启动判定流程：新消息离开这个窗口后，既不会触发强打断、也不会启动判定模型，
+            正在准备（或正在分段发送）的那条回答按原样继续。</small>
+        </div>
+        <label class="num">秒数<input type="number" id="interruptWindow" min="0.5" max="60" step="0.5" inputmode="decimal" /></label>
+      </div>
+      <div class="switch-row" style="margin-top:8px">
+        <div class="text">
+          <b>判定设置<span class="tag judge">仅弱打断</span></b>
+          <small>阈值 0-100：判定模型评分 &gt; 阈值才重新生成，否则保留旧回答。
+            上文条数：从主模型开始生成那一刻往前再多带几条消息。
+            超时(秒)：判定模型单次请求超时，失败才按失败策略收尾。
+            输出上限：判定只输出一行 JSON，思考模型给 64 会把预算全花在思考上。</small>
+        </div>
+        <label class="num">阈值<input type="number" id="judgeThreshold" min="0" max="100" step="1" inputmode="numeric" /></label>
+        <label class="num">上文条数<input type="number" id="judgeBefore" min="0" max="20" step="1" inputmode="numeric" /></label>
+        <label class="num">超时(秒)<input type="number" id="judgeTimeout" min="0.5" max="60" step="0.5" inputmode="decimal" /></label>
+        <label class="num">输出上限<input type="number" id="judgeMaxTokens" min="16" max="1024" step="8" inputmode="numeric" /></label>
+        <label class="num">思考
+          <input type="range" id="judgeThinking" min="0" max="2" step="1" />
+          <span id="judgeThinkingLabel" style="min-width:34px">关</span>
+        </label>
+        <button id="btnSaveJudge">保存</button>
+      </div>
+      <div class="switch-row" style="margin-top:8px">
+        <div class="text">
+          <b>判定模型<span class="tag judge">仅弱打断</span><span class="muted" style="font-weight:400">（选择后自动保存）</span></b>
+          <small>从已配置的对话模型里选一个（下拉读取全部模型）。建议用与主模型不同族的小模型、并配合「思考=关」；留「跟随当前会话模型」表示不单独指定。</small>
+        </div>
+        <select id="judgeProvider" style="min-width:260px">
+          <option value="">（跟随当前会话模型）</option>
+        </select>
+        <button id="btnRefreshModels" title="重新读取模型列表">刷新</button>
+      </div>
+      <div class="toolbar prompt-head" style="margin-top:10px">
+        <b style="font-size:12px;color:var(--dim);font-weight:500">弱打断判定提示词</b>
+        <span class="state" id="judgeState">读取中…</span>
+        <span class="muted" id="judgeMeta"></span>
+        <span class="grow" style="flex:1"></span>
+        <button id="btnJudgeEdit">编辑</button>
+        <button id="btnJudgeReset" disabled>还原</button>
+      </div>
+      <div class="editor" id="judgeEditor" hidden>
+        <textarea id="judgeEdit" spellcheck="false" aria-label="弱打断判定提示词"></textarea>
+        <div class="row">
+          <button id="btnJudgeSave" class="primary">保存</button>
+          <button id="btnJudgeCancel">取消</button>
+          <span class="muted" id="judgeHint"></span>
+        </div>
+      </div>
+    </div>
+  </details>
+
+  <details class="group" open>
+    <summary>分句发送<span class="hint">插件按分隔标识把一条回答拆成多段、逐段发送，段间可等待</span></summary>
+    <div class="gbody">
+      <div class="switches" id="switchList-segment"></div>
+      <div class="switch-row" style="margin-top:8px">
+        <div class="text">
+          <b>分句标识</b>
+          <small>插件按这个标识切开模型输出、逐段发送；输出里没有这个标识就整段发（流水会记一条「分句·跳过」及原因）。
+            切段时会跳过夹在公式里的分隔符；模型用的提示词里请写同一个标识。</small>
+        </div>
+        <label class="num">标识
+          <input type="text" id="segmentSeparator" maxlength="16" style="width:64px;text-align:center"
+                 autocomplete="off" spellcheck="false" />
+        </label>
+      </div>
+      <div class="switch-row" style="margin-top:8px">
+        <div class="text">
+          <b>段间等待</b>
+          <small><b>对数</b>：log_底数(本段字数) 秒；<b>一次函数</b>：初始值 + 本段字数 ÷ 增长率 秒。
+            等待越久越容易被新消息打断，每段发送前后都会检查有没有被打断。</small>
+        </div>
+        <span class="state" id="segmentState">读取中…</span>
+        <div class="seg" role="group" aria-label="分句间隔算法">
+          <button type="button" data-segmode="log">对数</button>
+          <button type="button" data-segmode="linear">一次函数</button>
+        </div>
+        <label class="num" data-segfield="log">底数
+          <input type="number" id="segmentLogBase" min="1.0" max="10" step="0.1" inputmode="decimal" />
+        </label>
+        <label class="num" data-segfield="linear">初始值(秒)
+          <input type="number" id="segmentLinearStart" min="0" max="30" step="0.1" inputmode="decimal" />
+        </label>
+        <label class="num" data-segfield="linear">增长率(字/秒)
+          <input type="number" id="segmentLinearRate" min="1" max="200" step="1" inputmode="numeric" />
+        </label>
+        <button id="btnSaveSegment">保存</button>
+      </div>
+    </div>
+  </details>
+
+  <details class="group" open>
+    <summary>消息缓冲<span class="hint">只影响主模型什么时候收到消息；单次时间 0 秒即关闭</span></summary>
+    <div class="gbody">
+      <div class="switch-row">
+        <div class="text">
+          <b>单次缓冲时间</b>
+          <small>每来一条新消息就重新计时；安静满这么久才把这批消息一起交给主模型。
+            设为 0 = 不缓冲（消息立即交给主模型）。
+            <b>缓冲只影响主模型</b>：撤销延迟消息、触发判定/打断、记录流水都在消息到达时立即发生。</small>
+        </div>
+        <span class="state" id="bufferState">读取中…</span>
+        <label class="num" for="bufferSeconds">秒数
+          <input type="number" id="bufferSeconds" min="0" max="10" step="0.1" inputmode="decimal" />
+        </label>
+      </div>
+      <div class="switch-row" style="margin-top:8px">
+        <div class="text">
+          <b>最大总缓冲时间</b>
+          <small>从<b>第一条</b>被缓冲的消息开始计时：到点无论单次计时是否满足，都结束缓冲、把已攒的消息交给主模型。
+            防止对方一直发消息导致无限缓冲。必须 ≥ 单次缓冲时间。</small>
+        </div>
+        <label class="num" for="bufferMaxSeconds">秒数
+          <input type="number" id="bufferMaxSeconds" min="0.5" max="30" step="0.5" inputmode="decimal" />
+        </label>
+        <button id="btnSaveBuffer">保存</button>
+      </div>
+    </div>
+  </details>
+
+  <div class="toolbar" style="margin-top:10px"><span class="muted" id="switchHint"></span></div>
+  <section>
+    <div class="toolbar">
+      <select id="fKind"><option value="">全部类型</option></select>
+      <select id="fReason"><option value="">全部原因</option></select>
+      <select id="fResult"><option value="">全部状态</option></select>
+      <input id="fUmo" placeholder="会话 umo（可留空）" style="min-width:230px" />
+      <input id="fQ" placeholder="关键词 / 原文" style="min-width:180px" />
+      <select id="fRange">
+        <option value="3600">近 1 小时</option>
+        <option value="21600">近 6 小时</option>
+        <option value="86400" selected>近 24 小时</option>
+        <option value="604800">近 7 天</option>
+        <option value="0">不限时间</option>
+      </select>
+      <button id="btnSearch" class="primary">查询</button>
+      <span style="flex:1"></span>
+      <button id="btnWindowEnd">结束唤醒窗口…</button>
+      <button id="btnClearLogs" class="danger">清空流水…</button>
+    </div>
+    <div id="holdPanel"></div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:130px">时间</th><th style="width:104px">类型</th>
+          <th style="width:96px">原因</th><th>会话 / 发送者</th>
+          <th style="width:70px">置信度</th><th style="width:64px">等待</th>
+          <th style="width:104px">状态</th><th>说明</th>
+        </tr>
+      </thead>
+      <tbody id="rows"><tr><td colspan="8" class="muted">正在加载流水…</td></tr></tbody>
+    </table>
+    <div class="pager">
+      <button id="btnPrev">上一页</button>
+      <span class="muted" id="pageInfo">—</span>
+      <button id="btnNext">下一页</button>
+    </div>
+  </section>
+
+</main>
+
+<dialog id="dlg">
+  <div class="dlg-head">
+    <b>流水详情</b><span style="flex:1"></span>
+    <button id="btnCloseDlg">关闭</button>
+  </div>
+  <div class="kv" id="dlgKv"></div>
+  <div class="field"><b>用户输入</b><div class="body" id="dlgInput"></div></div>
+  <div class="field"><b>模型原始输出</b><div class="body" id="dlgRaw"></div></div>
+  <div class="dlg-foot"><button id="btnCloseDlg2" class="primary">关闭</button></div>
+</dialog>
+
+<dialog id="windowDlg">
+  <div class="dlg-head"><b>结束唤醒窗口</b><span style="flex:1"></span><button data-close="windowDlg">关闭</button></div>
+  <p class="muted" style="margin:0">窗口结束后，该会话需重新 @ 才会再次进入判定。留空表示结束全部会话的窗口。</p>
+  <label for="windowUmo">会话 umo（可留空）</label>
+  <input type="text" id="windowUmo" placeholder="例如 aiocqhttp:GroupMessage:123456" />
+  <p class="muted" id="windowResult" style="margin:10px 0 0"></p>
+  <div class="dlg-foot">
+    <button data-close="windowDlg">取消</button>
+    <button id="btnWindowEndConfirm" class="primary">结束窗口</button>
+  </div>
+</dialog>
+
+<dialog id="clearDlg">
+  <div class="dlg-head"><b>清空流水</b><span style="flex:1"></span><button data-close="clearDlg">关闭</button></div>
+  <p style="margin:0">将删除 SQLite 中的全部审计流水，该操作不可恢复。插件开关与配置不受影响。</p>
+  <p class="muted" id="clearResult" style="margin:10px 0 0"></p>
+  <div class="dlg-foot">
+    <button data-close="clearDlg">取消</button>
+    <button id="btnClearConfirm" class="danger">确认清空</button>
+  </div>
+</dialog>
+
+<script>
+// 本页面由 AstrBot 仪表盘以 sandbox="allow-scripts allow-forms allow-downloads" 的 iframe 承载，
+// 没有 allow-same-origin：页面处于不透明来源，fetch / XHR / localStorage / alert 全部不可用。
+// 因此所有接口调用必须走宿主注入的桥：
+//   window.AstrBotPluginView.apiGet(endpoint, params) / apiPost(endpoint, body)
+const PLUGIN_ID = "astrbot_plugin_ReplyGate";
+const BRIDGE_TIMEOUT_MS = 15000;
+const BRIDGE_WAIT_MS = 4000;
+
+const KINDS = {
+  judge: "判定", silence: "沉默", hold: "暂存", recycle: "回收", error: "异常",
+  // 以下是旧版本留下的类型，只为老流水能正常显示（已不再产生）
+  window_open: "窗口开启", window_close: "窗口结束", wake: "唤醒主模型",
+  followup: "催促语", soft_judge: "判定模型（旧）", segment: "分句（旧）",
+  interrupt: "打断（旧）", regen: "重生成（旧）", config: "开关变更（旧）"
+};
+const REASONS = {
+  // 判定原因（判定模型在固定集合里选，或插件固定写入）
+  user_request: "用户要求", requirement_change: "需求取消/改变",
+  info_supplement: "补充信息", hard_interrupt: "强打断",
+  judge_unavailable: "判定不可用", unspecified: "未标注原因",
+  // 沉默 / 暂存原因
+  waiting_content: "等待内容", waiting_explanation: "等待解释",
+  goodbye: "再见已完成", consent_trap: "抗议", no_value: "无价值",
+  already_answered: "已回答过", user_busy: "用户想安静",
+  not_for_me: "不是对我说的", directed: "对我说的"
+};
+const RESULTS = {
+  // 判定状态：判定中 → 已作废 / 已打断 / 中途作废 / 不重发
+  judging: "判定中", discarded: "已作废", interrupted: "已打断",
+  partial_discarded: "中途作废", keep: "不重发",
+  // 沉默 / 暂存
+  pending: "等待中", sent: "已发送", held: "已暂存", cancelled: "已取消",
+  failed: "失败", dry_run: "仅观察记录", passed: "放行",
+  switch_off: "开关关闭", refuse_passthrough: "抗议转拒绝",
+  // 旧版本的状态码（老流水仍可读）
+  applied: "已生效（旧）", applied_unsaved: "已生效（旧）",
+  regen: "重新生成（旧）", forced: "强制重答（旧）", budget: "降级判定（旧）",
+  fallback_regen: "失败→重答（旧）", fallback_keep: "失败→保留（旧）",
+  suppressed: "已作废（旧）", stopped: "已停止（旧）", skipped: "无在途（旧）",
+  window_closed: "窗口外（旧）", restarted: "已重判（旧）",
+  segments_aborted: "分句中断（旧）"
+};
+// 状态色标：判定中=黄，已作废/已打断/中途作废=红，不重发=绿，其余灰/蓝
+const STATUS_TONE = {
+  judging: "yellow",
+  discarded: "red", interrupted: "red", partial_discarded: "red",
+  keep: "green",
+  pending: "yellow", held: "yellow",
+  cancelled: "red", failed: "red",
+  sent: "green", dry_run: "blue",
+  applied: "blue", applied_unsaved: "blue",
+  regen: "red", forced: "red", suppressed: "red", stopped: "red",
+  fallback_regen: "red", fallback_keep: "green", segments_aborted: "red",
+  budget: "muted", skipped: "muted", window_closed: "muted", restarted: "muted",
+  passed: "muted", switch_off: "muted", refuse_passthrough: "muted"
+};
+// 运行开关：key 与 _conf_schema.json 一致
+const SWITCHES = [
+  { key: "gate_enabled", group: "master", name: "启用插件",
+    desc: "整个插件的总开关：关闭后不介入任何消息（判定、沉默、暂存、打断、缓冲全部停止）。",
+    on: "已启用", off: "已停用" },
+  { key: "gate_dry_run", group: "silence", name: "实际拦截", invert: true,
+    desc: "开启后按判定真实生效：沉默会丢弃正文、暂存会延后发送。关闭时是仅观察，只剥标记、正文照发。",
+    on: "执行中", off: "仅观察" },
+  { key: "silence_enabled", group: "silence", name: "标记解析",
+    desc: "解析模型输出尾部的 %%SILENCE%% / %%HOLD%% 控制标记，决定沉默与暂存。",
+    on: "解析中", off: "已停用" },
+  { key: "prompt_block_inject", group: "silence", name: "提示词注入",
+    desc: "每次 LLM 请求前把下方「沉默机制」块追加到系统提示词；人格设定无需改动，已存在等价说明时自动跳过。",
+    on: "注入中", off: "已关闭" },
+  { key: "command_bypass", group: "silence", name: "命令消息旁路",
+    desc: "以 / 开头的消息不进判定、也不撤销暂存；出站层不特殊处理（命令不会交给模型）。",
+    on: "已旁路", off: "会进判定" },
+  { key: "interrupt_group_enabled", group: "interrupt", name: "群聊打断",
+    desc: "同一用户的新消息落在打断窗口内时，停掉在途回答并让这条重新回答。",
+    on: "可打断", off: "不打断" },
+  { key: "interrupt_other_users", group: "interrupt", name: "其它用户参与打断",
+    desc: "群聊里：关闭时只有当初触发这条回答的人再发消息才判定/打断；开启后其他成员发言也会触发。",
+    on: "其他人也触发", off: "仅本人触发" },
+  { key: "segment_control_enabled", group: "segment", name: "接管分句发送",
+    desc: "回答按分句标识拆成多段、逐段发送，每段前后检查有没有新消息；被打断就丢弃还没发的段。开启前请关闭 AstrBot 的 segmented_reply。",
+    on: "插件分句", off: "交给 AstrBot" },
+  { key: "interrupt_private_enabled", group: "interrupt", name: "私聊打断",
+    desc: "私聊里同一用户的新消息打断在途回答。",
+    on: "可打断", off: "不打断" }
+];
+const state = { page: 1, size: 50, total: 0, auto: true, rows: [], switches: {},
+                loaded: false, personaOk: false, busy: new Set(),
+                blockText: "", defaultBlock: "", customBlock: false,
+                judgeText: "", judgeCustom: false, options: {} };
+
+const $ = (id) => document.getElementById(id);
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({
+  "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+}[c]));
+const fmtTime = (ts) => {
+  const d = new Date((ts || 0) * 1000);
+  if (!ts) return "—";
+  const p = (n) => String(n).padStart(2, "0");
+  return `${p(d.getMonth() + 1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+};
+const timeout = (ms, message) =>
+  new Promise((_, reject) => setTimeout(() => reject(new Error(message)), ms));
+
+// ------------------------------------------------------------------ 传输层：宿主桥
+let bridgePromise = null;
+
+function bridgeLater(ms) {
+  return new Promise((resolve) => {
+    const started = Date.now();
+    const tick = () => {
+      if (window.AstrBotPluginView) { resolve(window.AstrBotPluginView); return; }
+      if (Date.now() - started >= ms) { resolve(null); return; }
+      setTimeout(tick, 50);
+    };
+    tick();
+  });
+}
+
+function getBridge() {
+  if (!bridgePromise) bridgePromise = bridgeLater(BRIDGE_WAIT_MS);
+  return bridgePromise;
+}
+
+function dashboardOnlyError() {
+  return new Error(
+    "无法连接 AstrBot 仪表盘桥：本页面需要在管理面板「插件 → ReplyGate → 页面」内打开。" +
+    "页面运行在沙箱 iframe 里（无 allow-same-origin），必须由宿主桥代理请求；" +
+    "直接打开 HTML 或宿主版本不支持插件页面桥时都会失败。"
+  );
+}
+
+async function callBridge(method, endpoint, payload) {
+  const bridge = await getBridge();
+  if (!bridge) throw dashboardOnlyError();
+  const call = method === "GET"
+    ? bridge.apiGet(endpoint, payload || {})
+    : bridge.apiPost(endpoint, payload || {});
+  return await Promise.race([call, timeout(BRIDGE_TIMEOUT_MS, "仪表盘桥请求超时（15 秒）")]);
+}
+
+// 非 iframe 场景（本机浏览器直接打开该文件）退化为同源 fetch。
+async function callDirect(method, endpoint, payload) {
+  const base = `/api/v1/plugins/extensions/${encodeURIComponent(PLUGIN_ID)}/${endpoint}`;
+  const url = new URL(base, window.location.origin);
+  let res;
+  if (method === "GET") {
+    for (const [key, value] of Object.entries(payload || {})) {
+      if (value !== undefined && value !== null && value !== "") url.searchParams.set(key, value);
+    }
+    res = await fetch(url, { credentials: "include", cache: "no-store" });
+  } else {
+    res = await fetch(url, {
+      method: "POST", credentials: "include", cache: "no-store",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload || {})
+    });
+  }
+  let body = null;
+  try { body = await res.json(); } catch (e) { body = null; }
+  if (!res.ok || (body && body.status === "error")) {
+    throw new Error((body && (body.message || body.detail)) || `HTTP ${res.status}`);
+  }
+  return body && body.data !== undefined ? body.data : body;
+}
+
+async function api(method, endpoint, payload) {
+  if (await getBridge()) {
+    // 桥存在：错误直接透出（多为宿主侧 HTTP 报错），不再降级
+    return await callBridge(method, endpoint, payload);
+  }
+  try {
+    return await callDirect(method, endpoint, payload);
+  } catch (err) {
+    throw dashboardOnlyError();
+  }
+}
+const apiGet = (endpoint, params) => api("GET", endpoint, params);
+const apiPost = (endpoint, body) => api("POST", endpoint, body);
+
+// ------------------------------------------------------------------ 通用 UI
+function showBanner(message) {
+  const box = $("banner");
+  if (!message) { box.innerHTML = ""; return; }
+  box.innerHTML = `<div class="banner"><b>面板请求失败</b>${esc(message)}
+    <div style="margin-top:8px"><button id="btnRetry">重试</button></div></div>`;
+  $("btnRetry").onclick = () => { refreshAll(); if (!state.personaOk) loadPersona().catch(() => {}); };
+}
+
+const setText = (id, value) => { const el = $(id); if (el) el.textContent = value; };
+
+function fillSelect(el, map, placeholder) {
+  const seen = new Set();
+  el.innerHTML = `<option value="">${placeholder}</option>` + Object.entries(map)
+    .map(([k, v]) => { seen.add(k); return `<option value="${esc(k)}">${esc(v)}（${esc(k)}）</option>`; })
+    .join("");
+  el._seen = seen;
+}
+
+function ensureOption(el, value) {
+  if (!value || el._seen?.has(value)) return;
+  const opt = document.createElement("option");
+  opt.value = value; opt.textContent = value;
+  el.appendChild(opt); el._seen?.add(value);
+}
+
+// ------------------------------------------------------------------ 运行开关
+// 开关显示值：invert=true 的项，UI 与配置取值相反（gate_dry_run 仍是内部真值）
+const shownValue = (item, raw) => (item.invert ? !raw : raw);
+
+const SWITCH_GROUPS = ["master", "silence", "interrupt", "segment"];
+
+function switchRowHtml(item) {
+  const raw = Boolean(state.switches[item.key]);
+  const on = shownValue(item, raw);
+  const ready = state.loaded;
+  // 关闭态对「实际拦截」是黄色的仅观察，其余项关闭即红色停用
+  const tone = !ready ? "" : (on ? "on" : (item.invert ? "observe" : "off"));
+  const label = !ready ? "读取中…" : (on ? item.on : item.off);
+  return `<div class="switch-row">
+    <div class="text"><b>${esc(item.name)}</b><small>${esc(item.desc)}</small></div>
+    <span class="state ${tone}">${esc(label)}</span>
+    <button type="button" class="toggle" role="switch" aria-checked="${on ? "true" : "false"}"
+      data-key="${esc(item.key)}" aria-label="${esc(item.name)}"
+      ${(!ready || state.busy.has(item.key)) ? "disabled" : ""}><span class="knob"></span></button>
+  </div>`;
+}
+
+function renderSwitches() {
+  for (const group of SWITCH_GROUPS) {
+    const host = $("switchList-" + group);
+    if (!host) continue;
+    host.innerHTML = SWITCHES.filter((item) => item.group === group)
+      .map(switchRowHtml).join("");
+    host.querySelectorAll("button.toggle").forEach((btn) => {
+      btn.addEventListener("click", () => toggleSwitch(btn.dataset.key));
+    });
+  }
+}
+
+async function toggleSwitch(key) {
+  if (state.busy.has(key) || !state.loaded) return;
+  const item = SWITCHES.find((entry) => entry.key === key) || { key };
+  const nextShown = !shownValue(item, Boolean(state.switches[key]));
+  const nextRaw = item.invert ? !nextShown : nextShown;
+  state.busy.add(key);
+  renderSwitches();
+  try {
+    const data = await apiPost("console/config", { key, value: nextRaw });
+    if (data && data.switches) state.switches = data.switches;
+    else state.switches[key] = nextRaw;
+    setSwitchHint(`已保存：${item.name} ${nextShown ? item.on : item.off}`);
+    if (key === "prompt_block_inject") loadPersona().catch(() => {});
+
+    showBanner("");
+  } catch (err) {
+    setSwitchHint("");
+    showBanner(`切换 ${key} 失败：${err.message}`);
+  } finally {
+    state.busy.delete(key);
+    renderSwitches();
+  }
+}
+
+function bufferSecondsValue() {
+  const ms = Number(state.options.buffer_quiet_ms ?? 1500);
+  return Math.round(ms / 100) / 10;   // 毫秒 → 秒（保留一位小数）
+}
+
+function bufferMaxSecondsValue() {
+  const ms = Number(state.options.buffer_max_wait_ms ?? 8000);
+  return Math.round(ms / 100) / 10;
+}
+
+function renderBuffer() {
+  const seconds = bufferSecondsValue();
+  const maxSeconds = Math.max(bufferMaxSecondsValue(), seconds);
+  const setVal = (id, value) => {
+    const el = $(id);
+    if (document.activeElement !== el) el.value = String(value);
+  };
+  setVal("bufferSeconds", seconds);
+  setVal("bufferMaxSeconds", maxSeconds);
+  const enabled = seconds > 0;
+  const pill = $("bufferState");
+  pill.textContent = !state.loaded ? "读取中…"
+    : (enabled ? `开启（单次 ${seconds}s / 上限 ${maxSeconds}s）` : "关闭");
+  pill.className = "state " + (!state.loaded ? "" : (enabled ? "on" : "off"));
+}
+
+function renderInterrupt() {
+  const windowSeconds = Math.round(Number(state.options.interrupt_window_ms ?? 8000) / 100) / 10;
+  const win = $("interruptWindow");
+  if (win && document.activeElement !== win) win.value = String(windowSeconds);
+  const mode = String(state.options.interrupt_mode || "soft");
+  document.querySelectorAll("[data-mode]").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.mode === mode);
+    btn.disabled = !state.loaded;
+  });
+  const pill = $("modeState");
+  pill.textContent = !state.loaded ? "读取中…" : (mode === "hard" ? "强打断" : "弱打断");
+  pill.className = "state " + (!state.loaded ? "" : (mode === "hard" ? "observe" : "on"));
+}
+
+function judgeModelLabel() {
+  const select = $("judgeProvider");
+  if (select && select.dataset.loaded === "1" && select.selectedOptions[0]) {
+    return select.selectedOptions[0].textContent;
+  }
+  const pid = String(state.options.soft_judge_provider_id || "");
+  return pid || "跟随当前会话模型";
+}
+
+function segmentMode() {
+  return String(state.options.segment_delay_mode || "log") === "linear" ? "linear" : "log";
+}
+
+function renderSegment() {
+  const mode = segmentMode();
+  const setVal = (id, value) => {
+    const el = $(id);
+    if (el && document.activeElement !== el) el.value = String(value);
+  };
+  const sep = $("segmentSeparator");
+  if (sep && document.activeElement !== sep) {
+    sep.value = String(state.options.segment_separator || "$$$");
+  }
+  setVal("segmentLogBase", Number(state.options.segment_log_base ?? 2.6));
+  setVal("segmentLinearStart",
+         Math.round(Number(state.options.segment_linear_start_ms ?? 800) / 100) / 10);
+  setVal("segmentLinearRate", Number(state.options.segment_linear_rate ?? 10));
+  document.querySelectorAll("[data-segfield]").forEach((el) => {
+    el.style.display = el.dataset.segfield === mode ? "" : "none";
+  });
+  document.querySelectorAll("[data-segmode]").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.segmode === mode);
+    btn.disabled = !state.loaded;
+  });
+  const pill = $("segmentState");
+  const on = Boolean(state.switches.segment_control_enabled);
+  const label = mode === "linear" ? "一次函数" : "对数";
+  pill.textContent = !state.loaded ? "读取中…" : (on ? `插件分句·${label}` : "交给 AstrBot");
+  pill.className = "state " + (!state.loaded ? "" : (on ? "on" : "off"));
+}
+
+async function setSegmentMode(mode) {
+  if (!state.loaded) return;
+  try {
+    const data = await apiPost("console/config",
+      { key: "segment_delay_mode", value: mode });
+    if (data && data.options) state.options = data.options;
+    renderSegment();
+    setSwitchHint(`已切换：分句间隔算法 ${mode === "linear" ? "一次函数" : "对数"}`);
+    showBanner("");
+  } catch (err) {
+    showBanner(`切换分句算法失败：${err.message}`);
+  }
+}
+
+async function saveSegmentDelay() {
+  const separator = String($("segmentSeparator").value || "").trim();
+  if (!separator || separator.length > 16) {
+    setSwitchHint("分句标识不能为空，且不超过 16 个字符"); return;
+  }
+  const base = Number($("segmentLogBase").value);
+  const start = Number($("segmentLinearStart").value);
+  const rate = Number($("segmentLinearRate").value);
+  if (!Number.isFinite(base) || base < 1 || base > 10) {
+    setSwitchHint("对数底数需在 1.0 ~ 10 之间"); return;
+  }
+  if (!Number.isFinite(start) || start < 0 || start > 30) {
+    setSwitchHint("初始值需在 0 ~ 30 秒之间"); return;
+  }
+  if (!Number.isFinite(rate) || rate < 1 || rate > 200) {
+    setSwitchHint("增长率需在 1 ~ 200 字/秒之间"); return;
+  }
+  try {
+    const results = await Promise.all([
+      apiPost("console/config", { key: "segment_separator", value: separator }),
+      apiPost("console/config", { key: "segment_log_base", value: base }),
+      apiPost("console/config", { key: "segment_linear_start_ms", value: Math.round(start * 1000) }),
+      apiPost("console/config", { key: "segment_linear_rate", value: Math.round(rate) })
+    ]);
+    const last = results[results.length - 1] || {};
+    if (last.options) state.options = last.options;
+    renderSegment();
+    setSwitchHint(`已保存：分句标识 ${separator} · 对数底数 ${base} · 初始值 ${start}s · 增长率 ${rate} 字/秒`);
+    showBanner("");
+  } catch (err) {
+    showBanner(`保存分句间隔失败：${err.message}`);
+  }
+}
+
+$("btnSaveSegment").onclick = saveSegmentDelay;
+document.querySelectorAll("[data-segmode]").forEach((btn) => {
+  btn.addEventListener("click", () => setSegmentMode(btn.dataset.segmode));
+});
+
+function judgeThresholdValue() {
+  return Number(state.options.soft_judge_threshold ?? 60);
+}
+
+function renderJudge() {
+  const setVal = (id, value) => {
+    const el = $(id);
+    if (document.activeElement !== el) el.value = String(value);
+  };
+  setVal("judgeThreshold", judgeThresholdValue());
+  setVal("judgeBefore", Number(state.options.soft_judge_context_before ?? 0));
+  setVal("judgeTimeout", Math.round(Number(state.options.soft_judge_timeout_ms ?? 4000) / 100) / 10);
+  setVal("judgeMaxTokens", Number(state.options.soft_judge_max_tokens ?? 256));
+  const level = String(state.options.soft_judge_thinking_level || "off");
+  const slider = $("judgeThinking");
+  slider.value = String(THINK_LEVELS.indexOf(level) < 0 ? 0 : THINK_LEVELS.indexOf(level));
+  slider.disabled = !state.loaded;
+  setText("judgeThinkingLabel", THINK_LABELS[THINK_LEVELS[Number(slider.value)]]);
+  const select = $("judgeProvider");
+  const current = String(state.options.soft_judge_provider_id || "");
+  if (!select.dataset.loaded) {
+    select.disabled = true;
+  } else {
+    // 只有"用户没有改动过、也不在聚焦状态"时才同步配置值，否则会把选择重置回去
+    if (select.dataset.dirty !== "1" && document.activeElement !== select) {
+      select.value = current;
+    }
+    select.disabled = !state.loaded || select.dataset.saving === "1";
+  }
+  setText("judgeMeta", `判定模型 ${judgeModelLabel()} · 阈值 ${judgeThresholdValue()}`);
+}
+
+const THINK_LEVELS = ["off", "minimal", "low"];
+const THINK_LABELS = { off: "关", minimal: "最低", low: "低" };
+
+async function loadModels() {
+  const select = $("judgeProvider");
+  try {
+    const data = await apiGet("console/models");
+    const providers = data.providers || [];
+    const current = String((data.current ?? state.options.soft_judge_provider_id) || "");
+    select.innerHTML = `<option value="">（跟随当前会话模型）</option>` +
+      providers.map((row) => {
+        const text = row.model ? `${row.model} — ${row.id}` : row.id;
+        return `<option value="${esc(row.id)}">${esc(text)}</option>`;
+      }).join("");
+    select.value = current;
+    select.dataset.loaded = "1";
+    select.disabled = !state.loaded;
+    if (current && select.value !== current) {
+      // 配置里的 id 不在当前列表（例如 provider 被删了）：保留可见
+      const option = document.createElement("option");
+      option.value = current;
+      option.textContent = `${current}（未在列表中找到）`;
+      select.appendChild(option);
+      select.value = current;
+    }
+    renderJudge();
+  } catch (err) {
+    select.dataset.loaded = "";
+    select.disabled = true;
+    setSwitchHint(`读取模型列表失败：${err.message}`);
+  }
+}
+
+$("judgeThinking").addEventListener("input", () => {
+  const level = THINK_LEVELS[Number($("judgeThinking").value)] || "off";
+  setText("judgeThinkingLabel", THINK_LABELS[level]);
+});
+$("judgeThinking").addEventListener("change", async () => {
+  const level = THINK_LEVELS[Number($("judgeThinking").value)] || "off";
+  try {
+    const data = await apiPost("console/config",
+      { key: "soft_judge_thinking_level", value: level });
+    if (data && data.options) state.options = data.options;
+    renderJudge();
+    setSwitchHint(`已保存：判定思考等级 ${THINK_LABELS[level] || level}`);
+    showBanner("");
+  } catch (err) {
+    showBanner(`保存思考等级失败：${err.message}`);
+  }
+});
+$("judgeProvider").addEventListener("change", async () => {
+  const select = $("judgeProvider");
+  const value = select.value || "";
+  select.dataset.dirty = "1";
+  select.dataset.saving = "1";
+  select.disabled = true;
+  try {
+    const data = await apiPost("console/config",
+      { key: "soft_judge_provider_id", value });
+    if (data && data.options) state.options = data.options;
+    select.dataset.dirty = "";
+    const label = value
+      ? (select.selectedOptions[0]?.textContent || value)
+      : "跟随当前会话模型";
+    setSwitchHint(`已保存：判定模型 ${label}`);
+    showBanner("");
+  } catch (err) {
+    select.dataset.dirty = "";
+    showBanner(`保存判定模型失败：${err.message}`);
+  } finally {
+    select.dataset.saving = "";
+    select.disabled = !state.loaded;
+    renderJudge();
+  }
+});
+
+$("btnRefreshModels").onclick = () => {
+  $("judgeProvider").dataset.loaded = "";
+  $("judgeProvider").dataset.dirty = "";
+  loadModels();
+};
+
+async function saveJudgeSettings() {
+  const threshold = Number($("judgeThreshold").value);
+  const before = Number($("judgeBefore").value);
+  const timeout = Number($("judgeTimeout").value);
+  const maxTokens = Number($("judgeMaxTokens").value);
+  if (!Number.isFinite(threshold) || threshold < 0 || threshold > 100) {
+    setSwitchHint("判定阈值需在 0 ~ 100 之间"); return;
+  }
+  if (!Number.isFinite(maxTokens) || maxTokens < 16 || maxTokens > 1024) {
+    setSwitchHint("输出上限需在 16 ~ 1024 之间"); return;
+  }
+  if (!Number.isFinite(before) || before < 0 || before > 20) {
+    setSwitchHint("上文条数需在 0 ~ 20 之间"); return;
+  }
+  if (!Number.isFinite(timeout) || timeout < 0.5 || timeout > 60) {
+    setSwitchHint("判定超时需在 0.5 ~ 60 秒之间"); return;
+  }
+  const btn = $("btnSaveJudge");
+  btn.disabled = true;
+  try {
+    const results = await Promise.all([
+      apiPost("console/config", { key: "soft_judge_threshold", value: Math.round(threshold) }),
+      apiPost("console/config", { key: "soft_judge_context_before", value: Math.round(before) }),
+      apiPost("console/config", { key: "soft_judge_timeout_ms", value: Math.round(timeout * 1000) }),
+      apiPost("console/config", { key: "soft_judge_max_tokens", value: Math.round(maxTokens) })
+    ]);
+    const last = results[results.length - 1];
+    if (last && last.options) state.options = last.options;
+    renderJudge();
+    setSwitchHint(`已保存：阈值 ${judgeThresholdValue()} · 上文 ${before} 条 · 超时 ${timeout}s · 输出 ${maxTokens} tokens`);
+    showBanner("");
+  } catch (err) {
+    showBanner(`保存判定设置失败：${err.message}`);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+$("btnSaveJudge").onclick = saveJudgeSettings;
+
+function setJudgeEditor(open) {
+  $("judgeEditor").hidden = !open;
+  $("btnJudgeEdit").disabled = open;
+  $("btnJudgeReset").disabled = open || !state.judgeCustom;
+  if (!open) setText("judgeHint", "");
+}
+
+$("btnJudgeEdit").onclick = () => {
+  $("judgeEdit").value = state.judgeText || "";
+  setJudgeEditor(true);
+  $("judgeEdit").focus();
+};
+$("btnJudgeCancel").onclick = () => setJudgeEditor(false);
+$("btnJudgeSave").onclick = async () => {
+  const text = $("judgeEdit").value;
+  if (!text.trim()) { setText("judgeHint", "内容不能为空；要恢复默认请点「还原」"); return; }
+  const btn = $("btnJudgeSave");
+  btn.disabled = true;
+  try {
+    await apiPost("console/prompt", { target: "judge", text });
+    setJudgeEditor(false);
+    await loadPersona();
+    setText("judgeHint", "已保存");
+  } catch (err) {
+    setText("judgeHint", `保存失败：${err.message}`);
+  } finally {
+    btn.disabled = false;
+  }
+};
+$("btnJudgeReset").onclick = async () => {
+  const btn = $("btnJudgeReset");
+  btn.disabled = true;
+  try {
+    await apiPost("console/prompt", { target: "judge", reset: true });
+    setJudgeEditor(false);
+    await loadPersona();
+    setText("judgeHint", "已还原为内置默认");
+  } catch (err) {
+    showBanner(`还原判定提示词失败：${err.message}`);
+  } finally {
+    btn.disabled = !state.judgeCustom;
+  }
+};
+
+async function setInterruptMode(mode) {
+  if (!state.loaded) return;
+  try {
+    const data = await apiPost("console/config", { key: "interrupt_mode", value: mode });
+    if (data && data.options) state.options = data.options;
+    renderInterrupt();
+    setSwitchHint(`已切换：${mode === "hard" ? "强打断" : "弱打断"}`);
+    showBanner("");
+  } catch (err) {
+    showBanner(`切换打断强度失败：${err.message}`);
+  }
+}
+
+document.querySelectorAll(".seg button").forEach((btn) => {
+  btn.addEventListener("click", () => setInterruptMode(btn.dataset.mode));
+});
+
+async function saveBuffer() {
+  const raw = Number($("bufferSeconds").value);
+  const rawMax = Number($("bufferMaxSeconds").value);
+  if (!Number.isFinite(raw) || raw < 0 || raw > 10) {
+    setSwitchHint("单次缓冲时间需在 0 ~ 10 秒之间");
+    return;
+  }
+  if (!Number.isFinite(rawMax) || rawMax < 0.5 || rawMax > 30) {
+    setSwitchHint("最大总缓冲时间需在 0.5 ~ 30 秒之间");
+    return;
+  }
+  if (raw > 0 && rawMax < raw) {
+    setSwitchHint("最大总缓冲时间不能小于单次缓冲时间");
+    return;
+  }
+  const btn = $("btnSaveBuffer");
+  btn.disabled = true;
+  try {
+    const results = await Promise.all([
+      apiPost("console/config", { key: "buffer_quiet_ms", value: Math.round(raw * 1000) }),
+      apiPost("console/config", { key: "buffer_max_wait_ms", value: Math.round(rawMax * 1000) })
+    ]);
+    const last = results[results.length - 1] || {};
+    if (last.options) state.options = last.options;
+    if (last.switches) state.switches = last.switches;
+    renderBuffer();
+    renderSwitches();
+    setSwitchHint(raw > 0
+      ? `已保存：单次 ${bufferSecondsValue()} 秒 / 上限 ${bufferMaxSecondsValue()} 秒`
+      : "已保存：缓冲关闭");
+    showBanner("");
+  } catch (err) {
+    showBanner(`保存缓冲设置失败：${err.message}`);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+$("btnSaveBuffer").onclick = saveBuffer;
+$("bufferSeconds").addEventListener("keydown", (event) => {
+  if (event.key === "Enter") saveBuffer();
+});
+$("bufferSeconds").addEventListener("change", () => setText("switchHint", ""));
+$("bufferMaxSeconds").addEventListener("keydown", (event) => {
+  if (event.key === "Enter") saveBuffer();
+});
+
+let hintTimer = null;
+function setSwitchHint(text) {
+  setText("switchHint", text);
+  if (hintTimer) clearTimeout(hintTimer);
+  if (text) hintTimer = setTimeout(() => setText("switchHint", ""), 4000);
+}
+
+// ------------------------------------------------------------------ 状态与统计
+async function loadHealth() {
+  const data = await apiGet("console/health");
+  state.loaded = true;
+  state.switches = data.switches || {
+    gate_enabled: data.enabled, gate_dry_run: data.dry_run,
+    silence_enabled: data.silence_enabled
+  };
+  state.options = data.options || state.options || {};
+  renderSwitches();
+  renderBuffer();
+  renderInterrupt();
+  renderSegment();
+  renderJudge();
+  setText("appTitle", data.version ? `ReplyGate - v${data.version}` : "ReplyGate");
+  $("warnings").innerHTML = (data.startup_warnings || []).length
+    ? `<div class="card" style="border-color:#4d3f1d;margin-top:12px"><b>部署前提未满足</b><ul class="warnlist">` +
+      data.startup_warnings.map((w) => `<li>${esc(w)}</li>`).join("") + `</ul></div>`
+    : "";
+  return data;
+}
+
+async function loadStats() {
+  const data = await apiGet("console/stats", { days: 1 });
+  const today = data.today || {};
+  const kinds = today.by_kind || {};
+  const byResult = today.by_result || {};
+  const judge = kinds.judge || 0;
+  setText("cJudge", judge);
+  setText("cJudgePct", judge
+    ? `已作废 ${byResult.discarded || 0} · 已打断 ${byResult.interrupted || 0} · `
+      + `中途作废 ${byResult.partial_discarded || 0} · 不重发 ${byResult.keep || 0}`
+    : "今日还没有判定");
+  setText("cSilence", kinds.silence || 0);
+  setText("cHold", kinds.hold || 0);
+  setText("cHoldSent", `按时发出 ${byResult.sent || 0} · 被打断 ${byResult.cancelled || 0}`);
+  setText("cRecycle", kinds.recycle || 0);
+  setText("cError", kinds.error || 0);
+}
+
+// ------------------------------------------------------------------ 流水
+function renderRows(rows) {
+  const tbody = $("rows");
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="8" class="muted">没有符合条件的流水</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map((row) => {
+    const kind = row.kind || "";
+    const reason = row.reason ? (REASONS[row.reason] || row.reason) : "—";
+    const result = row.result ? (RESULTS[row.result] || row.result) : "—";
+    return `<tr data-id="${esc(row.id)}">
+      <td class="mono">${fmtTime(row.ts)}</td>
+      <td><span class="tag ${esc(kind)}">${esc(KINDS[kind] || kind)}</span></td>
+      <td>${esc(reason)}</td>
+      <td class="mono">${esc(row.umo || "—")}<br>${esc(row.sender_name || row.sender_id || "")}</td>
+      <td>${row.confidence ?? "—"}</td>
+      <td>${row.wait_seconds ?? "—"}</td>
+      <td><span class="st ${esc(STATUS_TONE[row.result] || "muted")}">${esc(result)}</span></td>
+      <td>${esc(row.detail || (row.followup ? "催促：" + row.followup : ""))}</td>
+    </tr>`;
+  }).join("");
+  tbody.querySelectorAll("tr").forEach((tr) => {
+    tr.addEventListener("click", () => openDetail(tr.dataset.id));
+  });
+}
+
+function fillField(id, value) {
+  const el = $(id);
+  const text = String(value ?? "").trim();
+  el.textContent = text || "（无记录）";
+  el.classList.toggle("empty", !text);
+}
+
+async function openDetail(id) {
+  try {
+    const row = await apiGet("console/log", { id });
+    $("dlgKv").innerHTML = [
+      ["时间", fmtTime(row.ts)], ["类型", KINDS[row.kind] || row.kind],
+      ["会话", row.umo || "—"], ["发送者", `${row.sender_name || ""} ${row.sender_id || ""}`],
+      ["原因", row.reason ? `${REASONS[row.reason] || row.reason}（${row.reason}）` : "—"],
+      ["置信度", row.confidence ?? "—"], ["等待", row.wait_seconds ?? "—"],
+      ["状态", row.result ? (RESULTS[row.result] || row.result) : "—"],
+      ["耗时", row.ms ? row.ms + " ms" : "—"], ["模型", row.model || "—"],
+      ["说明", row.detail || "—"]
+    ].map(([k, v]) => `<b>${esc(k)}</b><span>${esc(v)}</span>`).join("");
+    fillField("dlgInput", row.user_input);
+    fillField("dlgRaw", row.raw_output);
+    $("dlg").showModal();
+  } catch (err) {
+    showBanner(`读取流水详情失败：${err.message}`);
+  }
+}
+
+async function loadLogs() {
+  const range = Number($("fRange").value);
+  const params = { page: state.page, size: state.size };
+  if ($("fKind").value) params.kind = $("fKind").value;
+  if ($("fReason").value) params.reason = $("fReason").value;
+  if ($("fResult").value) params.result = $("fResult").value;
+  if ($("fUmo").value.trim()) params.umo = $("fUmo").value.trim();
+  if ($("fQ").value.trim()) params.q = $("fQ").value.trim();
+  if (range > 0) params.since = Date.now() / 1000 - range;
+  const data = await apiGet("console/logs", params);
+  state.total = data.total || 0;
+  state.rows = data.rows || [];
+  renderRows(state.rows);
+  state.rows.forEach((row) => {
+    ensureOption($("fKind"), row.kind);
+    if (row.reason) ensureOption($("fReason"), row.reason);
+    if (row.result) ensureOption($("fResult"), row.result);
+  });
+  const pages = Math.max(1, Math.ceil(state.total / state.size));
+  if (state.page > pages) state.page = pages;
+  setText("pageInfo", `第 ${state.page} / ${pages} 页 · 共 ${state.total} 条`);
+  $("btnPrev").disabled = state.page <= 1;
+  $("btnNext").disabled = state.page >= pages;
+}
+
+async function loadWindow() {
+  const data = await apiGet("console/window");
+  const windows = data.windows || [];
+  const holds = data.holds || [];
+  if (!windows.length && !holds.length) { $("holdPanel").innerHTML = ""; return; }
+  const parts = [];
+  if (windows.length) {
+    parts.push(`<div class="card"><b>活跃窗口 ${windows.length}</b>` + windows.map((win) =>
+      `<small class="mono">${esc(win.umo)} · 唤醒者 ${esc(win.waker || "—")} · 有效用户 ${win.valid_users.length} · 连续无关 ${win.streak}</small>`
+    ).join("") + `</div>`);
+  }
+  if (holds.length) {
+    parts.push(`<div class="card"><b>HOLD 暂存中 ${holds.length}</b>` + holds.map((h) =>
+      `<small>${esc(h.umo)} · ${esc(REASONS[h.reason] || h.reason)} · ${h.seconds}s · ${esc(h.scope)}</small>`
+    ).join("") + `</div>`);
+  }
+  $("holdPanel").innerHTML = `<div class="cards" style="margin-top:10px">${parts.join("")}</div>`;
+}
+
+async function loadPersona() {
+  try {
+    const data = await apiGet("console/markers");
+    state.defaultBlock = data.default_template || "";
+    state.customBlock = Boolean(data.block_custom);
+    state.blockText = data.persona_template || "";
+    if (!state.blockText) throw new Error("插件未返回提示词块");
+    const injected = data.inject_enabled !== false;
+    const badge = $("personaState");
+    badge.textContent = injected ? (state.customBlock ? "已自定义·注入中" : "已由插件注入")
+                                 : "注入已关闭";
+    badge.className = "state " + (injected ? "on" : "off");
+    setText("personaMeta", injected
+      ? `经 ${data.inject_hook || "on_llm_request"} 追到系统提示词末尾 · 人格无需改动`
+      : `标记 ${data.silence_marker || "—"} / ${data.hold_marker || "—"} · 需手动粘进人格`);
+    $("btnPromptReset").disabled = !state.customBlock;
+
+    state.judgeText = data.judge_template || "";
+    state.judgeCustom = Boolean(data.judge_custom);
+    const judgeBadge = $("judgeState");
+    judgeBadge.textContent = state.judgeCustom ? "已自定义" : "内置默认";
+    judgeBadge.className = "state " + (state.judgeCustom ? "on" : "");
+    setText("judgeMeta", `判定模型 ${judgeModelLabel()} · 阈值 ${judgeThresholdValue()}`);
+    $("btnJudgeReset").disabled = !state.judgeCustom;
+    state.personaOk = true;
+  } catch (err) {
+    $("personaState").className = "state";
+    $("personaState").textContent = "读取失败";
+    setText("personaMeta", "");
+    state.personaOk = false;
+    throw err;
+  }
+}
+
+async function refreshAll() {
+  const results = await Promise.allSettled([
+    loadHealth(), loadStats(), loadLogs(), loadWindow(),
+    state.personaOk ? Promise.resolve() : loadPersona()
+  ]);
+  const failed = results.find((r) => r.status === "rejected");
+  if (!failed) { showBanner(""); return; }
+  const message = failed.reason?.message || "未知错误";
+  showBanner(message);
+  if (!state.loaded) {
+    $("rows").innerHTML = `<tr><td colspan="8" class="muted">${esc(message)}</td></tr>`;
+  }
+}
+
+// ------------------------------------------------------------------ 事件绑定
+$("btnRefresh").onclick = () => { state.page = 1; refreshAll(); };
+$("btnSearch").onclick = () => { state.page = 1; loadLogs().catch((e) => showBanner(e.message)); };
+$("btnPrev").onclick = () => {
+  if (state.page > 1) { state.page--; loadLogs().catch((e) => showBanner(e.message)); }
+};
+$("btnNext").onclick = () => { state.page++; loadLogs().catch((e) => showBanner(e.message)); };
+$("btnAuto").onclick = () => {
+  state.auto = !state.auto;
+  $("btnAuto").textContent = "自动刷新：" + (state.auto ? "开" : "关");
+  $("btnAuto").className = state.auto ? "primary" : "";
+};
+$("btnCloseDlg").onclick = () => $("dlg").close();
+$("btnCloseDlg2").onclick = () => $("dlg").close();
+
+document.querySelectorAll("[data-close]").forEach((btn) => {
+  btn.addEventListener("click", () => $(btn.dataset.close)?.close());
+});
+
+$("btnWindowEnd").onclick = () => {
+  $("windowUmo").value = $("fUmo").value.trim();
+  setText("windowResult", "");
+  $("windowDlg").showModal();
+};
+$("btnWindowEndConfirm").onclick = async () => {
+  const umo = $("windowUmo").value.trim();
+  const btn = $("btnWindowEndConfirm");
+  btn.disabled = true;
+  try {
+    const data = await apiPost("console/window/end", { umo });
+    setText("windowResult", data.closed ? `已结束 ${data.closed} 个窗口` : "没有需要结束的窗口");
+    refreshAll();
+  } catch (err) {
+    setText("windowResult", `操作失败：${err.message}`);
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+$("btnClearLogs").onclick = () => {
+  setText("clearResult", "");
+  $("clearDlg").showModal();
+};
+$("btnClearConfirm").onclick = async () => {
+  const btn = $("btnClearConfirm");
+  btn.disabled = true;
+  try {
+    const data = await apiPost("console/logs/clear", {});
+    setText("clearResult", `已清空 ${data.removed} 条流水`);
+    state.page = 1;
+    refreshAll();
+  } catch (err) {
+    setText("clearResult", `操作失败：${err.message}`);
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+function setEditor(open) {
+  $("promptEditor").hidden = !open;
+  $("btnPromptEdit").disabled = open;
+  $("btnPromptReset").disabled = open || !state.customBlock;
+  if (!open) setText("promptHint", "");
+}
+
+// 代码块默认不展示：点「编辑」才出现（只查看不保存即可），不再单独提供展开
+$("btnPromptEdit").onclick = () => {
+  $("personaEdit").value = state.blockText || "";
+  setEditor(true);
+  $("personaEdit").focus();
+};
+
+$("btnPromptCancel").onclick = () => {
+  setEditor(false);
+  $("btnPromptReset").disabled = !state.customBlock;
+};
+
+$("btnPromptSave").onclick = async () => {
+  const text = $("personaEdit").value;
+  if (!text.trim()) { setText("promptHint", "内容不能为空；要恢复默认请点「还原」"); return; }
+  const btn = $("btnPromptSave");
+  btn.disabled = true;
+  try {
+    const data = await apiPost("console/prompt", { target: "system", text });
+    setText("promptHint", data && data.persisted === false
+      ? "已生效（写盘失败，重启后会丢失）" : "已保存");
+    setEditor(false);
+    await loadPersona();
+  } catch (err) {
+    setText("promptHint", `保存失败：${err.message}`);
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+$("btnPromptReset").onclick = async () => {
+  const btn = $("btnPromptReset");
+  btn.disabled = true;
+  try {
+    await apiPost("console/prompt", { target: "system", reset: true });
+    setEditor(false);
+    await loadPersona();
+    setText("promptHint", "已还原为插件默认提示词");
+  } catch (err) {
+    showBanner(`还原提示词失败：${err.message}`);
+  } finally {
+    btn.disabled = !state.customBlock;
+  }
+};
+
+fillSelect($("fKind"), KINDS, "全部类型");
+fillSelect($("fReason"), REASONS, "全部原因");
+fillSelect($("fResult"), RESULTS, "全部状态");
+renderSwitches();
+loadModels();
+refreshAll();
+setInterval(() => {
+  if (state.auto && !document.hidden) refreshAll();
+}, 5000);
+</script>
+</body>
+</html>

@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "master"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Byte-compile
+        run: python -m py_compile main.py prompts.py core/*.py store/*.py webui/*.py tests/*.py
+
+      - name: Unit tests（离线，不需要 AstrBot）
+        run: |
+          for t in tests/*.py; do
+            echo "== $t"
+            python "$t"
+          done
+
+      - name: Panel smoke test
+        run: node tests/test_page_smoke.mjs
+
+  package:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build plugin zip
+        run: |
+          python - <<'PY'
+          import zipfile
+          from pathlib import Path
+          root = Path("."); target = Path("astrbot_plugin_ReplyGate.zip")
+          target.unlink(missing_ok=True)
+          skip = {"__pycache__", ".git", ".github", "node_modules"}
+          with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED) as z:
+              for path in sorted(root.rglob("*")):
+                  if skip & set(path.parts) or path.suffix == ".pyc" or path.is_dir():
+                      continue
+                  if path.resolve() == target.resolve():
+                      continue
+                  z.write(path, f"astrbot_plugin_ReplyGate/{path.as_posix()}")
+          print(len(zipfile.ZipFile(target).namelist()), "files",
+                target.stat().st_size, "bytes")
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: astrbot_plugin_ReplyGate
+          path: astrbot_plugin_ReplyGate.zip

@@ -1,0 +1,16 @@
+# 统一行尾：仓库里一律 LF，避免 Windows/CI 之间反复整文件 diff
+* text=auto eol=lf
+
+# 二进制文件不做换行转换
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.zip binary
+*.db binary
+
+# Windows 脚本（如有）保留 CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
