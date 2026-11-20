@@ -7,7 +7,7 @@
   <img alt="platform" src="https://img.shields.io/badge/platform-aiocqhttp%20%7C%20qq__official-8957e5">
 </p>
 
-<p align="center">把「该不该回」和「该回什么」拆开：让模型自己对回复时机下判断，插件只负责执行与记录。</p>
+<p align="center">让模型自己对回复时机下判断，插件只负责执行与记录。</p>
 
 ---
 
@@ -90,8 +90,7 @@
 | AstrBot | `>= 4.29.1`（插件市场的版本检查会自动校验） |
 | 流式输出 | **必须关闭**（`provider_settings.streaming_response = false`） |
 | 主动回复概率 | **必须关闭**（`provider_ltm_settings.active_reply`） |
-| 其它拦截类插件 | 不要同时启用（例如 LivingHello），否则互相抢消息 |
-| 微信/QQ 桥 | 若使用 AstrWechat：`buffer_seconds = 0`，缓冲交给本插件 |
+| 其它拦截类插件 | **关闭**，否则互相抢消息 |
 | 分句发送 | 启用插件分句前，关闭 AstrBot 自带的「分段回复」 |
 
 插件启动时会检查前两项与冲突插件，没通过会在面板顶部红字列出。
@@ -107,8 +106,8 @@
 
 ### 首次使用建议
 
-1. 保持「仅观察」开启（默认）、「提示词注入」开启，人格不用改。
-2. 正常聊几句，观察看板里的判定与沉默记录，确认原因分类与阈值合适。
+1. 保持「仅观察」开启（默认）、「提示词注入」开启。
+2. 正常使用，观察判定与沉默记录，确认原因分类与阈值合适。
 3. 再关闭「仅观察」转为实际执行，按需开启「消息缓冲」「群聊打断」「分句发送」。
 
 ---
@@ -217,13 +216,13 @@
 
 ## 开发
 
-- 目录、模块职责、契约与踩坑、路线图：见 [`HANDOFF.md`](HANDOFF.md)。
-- 自动化测试（不依赖 AstrBot，离线可跑）：
+- 路线图：见 [`HANDOFF.md`](HANDOFF.md)。
+- 自动化测试：
 
 ```bash
 python -m py_compile main.py prompts.py core/*.py store/*.py webui/*.py
 for t in tests/*.py; do python "$t"; done
-node tests/test_page_smoke.mjs      # 面板冒烟
+node tests/test_page_smoke.mjs
 ```
 
 ## 许可证
